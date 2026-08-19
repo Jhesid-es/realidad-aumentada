@@ -24,6 +24,18 @@
       background: #0b0f14;
     }
 
+    /* La escena AR (embedded) necesita que su contenedor tenga tamaño,
+       si no, el canvas WebGL queda con altura 0 y la pantalla se ve negra. */
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    /* El canvas debe ser transparente para que se vea el video de la cámara. */
+    canvas {
+      background: transparent !important;
+    }
+
     #inicio {
       position: fixed;
       inset: 0;
@@ -87,6 +99,7 @@
       max-width: 420px;
     }
 
+    /* Mensaje de estado (no bloquea la cámara) */
     #mensaje {
       position: fixed;
       top: max(14px, env(safe-area-inset-top));
@@ -94,46 +107,14 @@
       transform: translateX(-50%);
       z-index: 9000;
       color: #fff;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(4px);
       padding: 8px 16px;
       border-radius: 999px;
       font-size: 14px;
       white-space: nowrap;
+      pointer-events: none;
       display: none;
-    }
-
-    #cargando {
-      position: fixed;
-      inset: 0;
-      z-index: 9500;
-      background: rgba(0, 0, 0, 0.7);
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-
-    .spinner {
-      width: 44px;
-      height: 44px;
-      border: 4px solid rgba(255, 255, 255, 0.2);
-      border-top-color: #2196f3;
-      border-radius: 50%;
-      animation: girar 0.9s linear infinite;
-      margin-bottom: 16px;
-    }
-
-    @keyframes girar {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .oculto {
-      display: none !important;
     }
   </style>
 </head>
@@ -155,12 +136,6 @@
   <!-- Estado de detección -->
   <div id="mensaje">Buscando marcador...</div>
 
-  <!-- Carga del modelo -->
-  <div id="cargando" class="oculto">
-    <div class="spinner"></div>
-    <div id="cargando-texto">Iniciando realidad aumentada...</div>
-  </div>
-
   <!-- Aquí se inyecta la escena AR -->
   <div id="app"></div>
 
@@ -173,16 +148,6 @@
       var el = document.getElementById('mensaje');
       el.style.display = 'block';
       el.textContent = texto;
-    }
-
-    function ocultarMensaje() {
-      document.getElementById('mensaje').style.display = 'none';
-    }
-
-    function cargando(visible, texto) {
-      var el = document.getElementById('cargando');
-      el.classList.toggle('oculto', !visible);
-      if (texto) document.getElementById('cargando-texto').textContent = texto;
     }
 
     function aviso(texto) {
@@ -205,7 +170,7 @@
       }
 
       try {
-        cargando(true, 'Solicitando permiso de cámara...');
+        mensaje('Solicitando permiso de cámara...');
 
         // El navegador exige un gesto del usuario para la cámara (sobre todo iOS).
         // Se pide el permiso con este clic y luego se cierra el stream para
@@ -213,10 +178,9 @@
         var stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         stream.getTracks().forEach(function (t) { t.stop(); });
 
-        cargando(true, 'Iniciando realidad aumentada...');
-
-        // Quitar pantalla de inicio
+        // Quitar pantalla de inicio: la cámara queda visible de inmediato
         document.getElementById('inicio').remove();
+        mensaje('Iniciando realidad aumentada...');
 
         // Patrón del marcador: se usa el embebido (data: URI) para evitar CORS/XHR.
         var patternUrl = window.PATRON_MARCADOR_BASE64
@@ -227,7 +191,7 @@
         document.getElementById('app').innerHTML =
           '<a-scene embedded ' +
           'vr-mode-ui="enabled:false" ' +
-          'renderer="antialias:true; alpha:true; logarithmicDepthBuffer:true; precision:medium" ' +
+          'renderer="antialias:true; alpha:true; precision:medium" ' +
           'arjs="sourceType:webcam; debugUIEnabled:false; trackingMethod:best">' +
           '<a-marker id="marker" type="pattern" url="' + patternUrl + '" ' +
           'smooth="true" smooth-count="10" smooth-tolerance="0.01" smooth-threshold="5">' +
@@ -238,11 +202,20 @@
 
         var THREE = AFRAME.THREE;
 
+        // Cuando el video de AR arranque, avisamos que el modelo se está cargando
+        var timer = setInterval(function () {
+          var v = document.getElementById('arjs-video');
+          if (v && v.readyState >= 2) {
+            clearInterval(timer);
+            mensaje('Cargando modelo 3D...');
+          }
+        }, 250);
+        setTimeout(function () { clearInterval(timer); }, 10000);
+
         // Detección del marcador
         var marker = document.getElementById('marker');
         marker.addEventListener('markerFound', function () {
           mensaje('✅ Modelo detectado');
-          cargando(false);
         });
         marker.addEventListener('markerLost', function () {
           mensaje('Buscando marcador...');
@@ -272,21 +245,16 @@
             z: -center.z * s
           });
 
-          cargando(true, 'Modelo listo. Busca el marcador 📷');
-          setTimeout(function () { cargando(false); }, 1200);
           mensaje('Buscando marcador...');
         });
 
         modelo.addEventListener('model-error', function () {
-          cargando(false);
-          aviso('⚠️ No se pudo cargar el modelo 3D. Verifica que modelo.glb exista junto a index.html ' +
-            'y que la página se sirva por HTTPS o localhost (no file://).');
+          mensaje('⚠️ No se pudo cargar el modelo 3D. Revisa que modelo.glb esté junto a index.html.');
         });
 
       } catch (error) {
         console.error(error);
-        cargando(false);
-        aviso('❌ No se pudo acceder a la cámara. Revisa que el permiso esté habilitado para el sitio.');
+        mensaje('❌ No se pudo acceder a la cámara. Revisa el permiso de cámara del sitio.');
       }
     }
   </script>
