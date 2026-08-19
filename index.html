@@ -114,6 +114,24 @@
       pointer-events: none;
       display: none;
     }
+
+    /* Confirmación en pantalla de que el modelo 3D se cargó */
+    #listo {
+      position: fixed;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9001;
+      color: #c9ffc9;
+      background: rgba(0, 70, 0, 0.75);
+      backdrop-filter: blur(4px);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 14px;
+      white-space: nowrap;
+      pointer-events: none;
+      display: none;
+    }
   </style>
 </head>
 
@@ -133,6 +151,9 @@
 
   <!-- Estado de detección -->
   <div id="mensaje">Buscando marcador...</div>
+
+  <!-- Confirmación de carga del modelo -->
+  <div id="listo">✅ Modelo cargado</div>
 
   <!-- Aquí se inyecta la escena AR -->
   <div id="app"></div>
@@ -162,6 +183,14 @@
 
     function aviso(texto) {
       document.getElementById('aviso').textContent = texto;
+    }
+
+    function mostrarListo() {
+      document.getElementById('listo').style.display = 'block';
+    }
+
+    function ocultarListo() {
+      document.getElementById('listo').style.display = 'none';
     }
 
     async function iniciarAR() {
@@ -203,48 +232,153 @@
         var THREE = AFRAME.THREE;
 
         // Cuando el video de AR arranque, avisamos que el modelo se está cargando
+        var modeloCargado = false;
         var timer = setInterval(function () {
           var v = document.getElementById('arjs-video');
           if (v && v.readyState >= 2) {
             clearInterval(timer);
-            mensaje('Cargando modelo 3D...');
+            if (!modeloCargado) mensaje('Cargando modelo 3D...');
           }
         }, 250);
         setTimeout(function () { clearInterval(timer); }, 10000);
 
+        // ---- Gestos táctiles: rotar (1 dedo) y zoom (pellizco) al modelo ----
+        var marcadorVisible = false;
+        var escalaBase = 1;          // escala automática calculada del modelo
+        var zoomActual = MODELO_ZOOM; // zoom del usuario (se suma al pellizcar)
+        var rotacionActual = {
+          x: MODELO_ROTACION.x,
+          y: MODELO_ROTACION.y,
+          z: MODELO_ROTACION.z
+        };
+        var tamanoModelo = null;     // tamaño del modelo (se calcula al cargar)
+        var centroModelo = null;     // centro del modelo (se calcula al cargar)
+
+        var ROTAR_VELOCIDAD = 0.35;  // grados por píxel de arrastre
+        var ZOOM_MIN = 0.2;
+        var ZOOM_MAX = 10;
+
+        function aplicarRotacion() {
+          modelo.setAttribute('rotation', {
+            x: rotacionActual.x,
+            y: rotacionActual.y,
+            z: rotacionActual.z
+          });
+        }
+
+        // Escala + posición juntas para que el modelo siempre quede
+        // centrado y apoyado sobre el marcador a cualquier zoom.
+        function aplicarEscala() {
+          var s = escalaBase * zoomActual;
+          modelo.setAttribute('scale', { x: s, y: s, z: s });
+          if (tamanoModelo && centroModelo) {
+            modelo.setAttribute('position', {
+              x: -centroModelo.x * s,
+              y: (tamanoModelo.y * s) / 2 - centroModelo.y * s,
+              z: -centroModelo.z * s
+            });
+          }
+        }
+
+        var gesto = { toques: {}, modo: 'ninguno', distAnterior: 0 };
+        var ultimoToqueSimple = 0;
+
+        function distToques() {
+          var claves = Object.keys(gesto.toques);
+          if (claves.length < 2) return 0;
+          var a = gesto.toques[claves[0]], b = gesto.toques[claves[1]];
+          return Math.hypot(a.x - b.x, a.y - b.y);
+        }
+
+        document.body.addEventListener('touchstart', function (e) {
+          if (!marcadorVisible) return;
+          e.preventDefault();
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            var t = e.changedTouches[i];
+            gesto.toques[t.identifier] = { x: t.clientX, y: t.clientY };
+          }
+          var n = Object.keys(gesto.toques).length;
+          if (n === 1 && Date.now() - ultimoToqueSimple < 300) {
+            // Doble toque: restablecer rotación y zoom al valor inicial
+            rotacionActual = { x: MODELO_ROTACION.x, y: MODELO_ROTACION.y, z: MODELO_ROTACION.z };
+            zoomActual = MODELO_ZOOM;
+            aplicarRotacion();
+            aplicarEscala();
+          }
+          ultimoToqueSimple = Date.now();
+          if (n === 2) {
+            gesto.modo = 'zoom';
+            gesto.distAnterior = distToques();
+          } else if (n === 1) {
+            gesto.modo = 'rotar';
+          }
+        }, { passive: false });
+
+        document.body.addEventListener('touchmove', function (e) {
+          if (!marcadorVisible || gesto.modo === 'ninguno') return;
+          e.preventDefault();
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            var t = e.changedTouches[i];
+            var prev = gesto.toques[t.identifier];
+            if (!prev) continue;
+            if (gesto.modo === 'rotar') {
+              rotacionActual.y += (t.clientX - prev.x) * ROTAR_VELOCIDAD;
+              rotacionActual.x += (t.clientY - prev.y) * ROTAR_VELOCIDAD;
+              aplicarRotacion();
+            }
+            gesto.toques[t.identifier] = { x: t.clientX, y: t.clientY };
+          }
+          if (gesto.modo === 'zoom') {
+            var d = distToques();
+            if (gesto.distAnterior > 0) {
+              zoomActual = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomActual * (d / gesto.distAnterior)));
+              aplicarEscala();
+            }
+            gesto.distAnterior = d;
+          }
+        }, { passive: false });
+
+        document.body.addEventListener('touchend', function (e) {
+          for (var i = 0; i < e.changedTouches.length; i++) {
+            delete gesto.toques[e.changedTouches[i].identifier];
+          }
+          var n = Object.keys(gesto.toques).length;
+          gesto.modo = n === 2 ? 'zoom' : (n === 1 ? 'rotar' : 'ninguno');
+          gesto.distAnterior = n === 2 ? distToques() : 0;
+        });
+
         // Detección del marcador
         var marker = document.getElementById('marker');
         marker.addEventListener('markerFound', function () {
+          marcadorVisible = true;
+          ocultarListo();
           mensaje('✅ Modelo detectado');
         });
         marker.addEventListener('markerLost', function () {
+          marcadorVisible = false;
           mensaje('Buscando marcador...');
         });
 
         // Carga del modelo 3D: se centra y se ajusta sobre el marcador
         var modelo = document.getElementById('modelo');
         modelo.addEventListener('model-loaded', function () {
+          modeloCargado = true;
           var mesh = modelo.getObject3D('mesh');
           if (!mesh) return;
 
-          modelo.setAttribute('rotation', MODELO_ROTACION);
-
           var box = new THREE.Box3().setFromObject(mesh);
-          var size = new THREE.Vector3();
-          var center = new THREE.Vector3();
-          box.getSize(size);
-          box.getCenter(center);
+          tamanoModelo = new THREE.Vector3();
+          centroModelo = new THREE.Vector3();
+          box.getSize(tamanoModelo);
+          box.getCenter(centroModelo);
 
-          var maxDim = Math.max(size.x, size.y, size.z) || 1;
-          var s = (1 / maxDim) * MODELO_ESCALA * MODELO_ZOOM;
+          var maxDim = Math.max(tamanoModelo.x, tamanoModelo.y, tamanoModelo.z) || 1;
+          escalaBase = (1 / maxDim) * MODELO_ESCALA;
 
-          modelo.setAttribute('scale', { x: s, y: s, z: s });
-          modelo.setAttribute('position', {
-            x: -center.x * s,
-            y: (size.y * s) / 2 - center.y * s,
-            z: -center.z * s
-          });
+          aplicarRotacion();
+          aplicarEscala();
 
+          mostrarListo();
           mensaje('Buscando marcador...');
         });
 
