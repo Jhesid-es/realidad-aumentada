@@ -139,8 +139,20 @@
 
   <script>
     var MODELO = 'modelo.glb';
-    // Ajusta la orientación del modelo si aparece girado (grados en X Y Z)
+
+    // ===== CONFIGURACIÓN DEL MODELO EN PANTALLA =====
+
+    // Rotación del modelo (grados en X Y Z). Útil si aparece girado.
     var MODELO_ROTACION = { x: 0, y: 0, z: 0 };
+
+    // Dimensión: tamaño del modelo respecto al marcador.
+    // 1 = ajusta el modelo al marcador automáticamente.
+    // 0.5 = la mitad de tamaño · 2 = doble de tamaño.
+    var MODELO_ESCALA = 2;
+
+    // Zoom en pantalla: factor extra de tamaño sobre la escala.
+    // 1 = normal · 2 = se ve el doble de grande · 0.5 = se ve a la mitad.
+    var MODELO_ZOOM = 2;
 
     function mensaje(texto) {
       var el = document.getElementById('mensaje');
@@ -224,7 +236,7 @@
           box.getCenter(center);
 
           var maxDim = Math.max(size.x, size.y, size.z) || 1;
-          var s = 1 / maxDim;
+          var s = (1 / maxDim) * MODELO_ESCALA * MODELO_ZOOM;
 
           modelo.setAttribute('scale', { x: s, y: s, z: s });
           modelo.setAttribute('position', {
