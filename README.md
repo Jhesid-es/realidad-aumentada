@@ -8,6 +8,9 @@ celular, se muestra el modelo 3D (`modelo.glb`).
 
 ```
 RA/
+├── .github/
+│   └── workflows/
+│       └── deploy-pages.yml  # Publica en GitHub Pages automáticamente
 ├── index.html        # Página AR (cámara + marcador + modelo 3D)
 ├── modelo.glb        # Tu modelo 3D (reemplázalo por el tuyo)
 ├── marker.png        # MARCADOR PARA IMPRIMIR / ESCANEAR
@@ -19,13 +22,30 @@ RA/
 
 ## Cómo publicar en GitHub Pages
 
+### Opción A — Con workflow (recomendado)
+
+El repositorio ya incluye `.github/workflows/deploy-pages.yml`, que publica el
+sitio automáticamente con cada `push` a `main`/`master` (y regenera el marcador).
+
 1. Sube esta carpeta a un repositorio de GitHub.
 2. En el repositorio ve a **Settings → Pages**.
-3. En **Source** elige `Deploy from a branch` y selecciona la rama `main`
-   (o `master`) con la carpeta `/` (root).
-4. Guarda. GitHub te dará una URL tipo
+3. En **Source** elige **GitHub Actions**.
+4. Sube un cambio a la rama principal (o ve a **Actions** y ejecuta
+   *"Deploy a GitHub Pages"* manualmente con **Run workflow**).
+5. GitHub te dará una URL tipo
    `https://tu-usuario.github.io/nombre-del-repo/`.
-5. Abre esa URL en el **celular** (debe abrirse en **HTTPS**, requisito de la cámara).
+6. Abre esa URL en el **celular** (debe abrirse en **HTTPS**, requisito de la cámara).
+
+### Opción B — Sin workflow (rama)
+
+1. En **Settings → Pages** elige **Source → Deploy from a branch**.
+2. Selecciona la rama `main` (o `master`) con la carpeta `/` (root).
+3. Guarda. GitHub te dará una URL tipo
+   `https://tu-usuario.github.io/nombre-del-repo/`.
+4. Abre esa URL en el **celular** (HTTPS).
+
+> En la Opción B el `pattern-data.js` ya está generado en el repo, así que la
+> página funciona igual; solo no se regenera automáticamente con cada push.
 
 ## Cómo usarla
 
