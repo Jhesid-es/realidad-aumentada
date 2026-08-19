@@ -99,3 +99,4 @@ a 16×16.
 - [A-Frame](https://aframe.io/) (1.6.0)
 - [AR.js](https://github.com/AR-js-org/AR.js) (3.4.8) — marcadores
   (pattern-based) en el navegador."# realidad-aumentada" 
+# realidad-aumentada
