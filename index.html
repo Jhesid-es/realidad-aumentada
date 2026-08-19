@@ -36,14 +36,26 @@
       background: transparent !important;
     }
 
-    /* Centra el vídeo de la cámara detrás del canvas AR. */
+    /* Centra el vídeo de la cámara detrás del canvas AR.
+       El margen es clave: AR.js le pone margin-left/top negativos inline
+       (p. ej. -367px) que lo sacan de pantalla en vertical. */
     #arjs-video {
       position: fixed !important;
       inset: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
+      margin: 0 !important;
       object-fit: cover !important;
       object-position: center center !important;
+      z-index: -2 !important;
+    }
+
+    /* AR.js copia el tamaño del video al body (width/height/márgenes inline);
+       lo neutralizamos para que no deforme el layout. */
+    body {
+      width: auto !important;
+      height: 100% !important;
+      margin: 0 !important;
     }
 
     #inicio {
@@ -182,6 +194,12 @@
       try {
         // AR.js solicita y administra el único stream de cámara desde este clic.
         document.getElementById('inicio').remove();
+
+        // Fondo transparente: evita que el fondo del html/body tape el video
+        // de la cámara (comportamiento conocido en iOS con z-index negativos).
+        document.documentElement.style.background = 'transparent';
+        document.body.style.background = 'transparent';
+
         mensaje('Iniciando realidad aumentada...');
 
         // Patrón del marcador: se usa el embebido (data: URI) para evitar CORS/XHR.
