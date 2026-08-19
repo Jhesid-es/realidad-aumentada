@@ -7,11 +7,9 @@
   <link rel="icon" href="data:,">
   <title>RA - Modelo 3D</title>
 
-  <!-- A-Frame + AR.js (marcadores) -->
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <!-- Igual que el ejemplo oficial: A-Frame 1.6.0 + AR.js -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.8/aframe/build/aframe-ar.js"></script>
-  <!-- Patrón del marcador embebido (evita peticiones CORS/XHR) -->
-  <script src="pattern-data.js"></script>
 
   <style>
     html,
@@ -34,28 +32,6 @@
     /* El canvas debe ser transparente para que se vea el video de la cámara. */
     canvas {
       background: transparent !important;
-    }
-
-    /* Centra el vídeo de la cámara detrás del canvas AR.
-       El margen es clave: AR.js le pone margin-left/top negativos inline
-       (p. ej. -367px) que lo sacan de pantalla en vertical. */
-    #arjs-video {
-      position: fixed !important;
-      inset: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      margin: 0 !important;
-      object-fit: cover !important;
-      object-position: center center !important;
-      z-index: -2 !important;
-    }
-
-    /* AR.js copia el tamaño del video al body (width/height/márgenes inline);
-       lo neutralizamos para que no deforme el layout. */
-    body {
-      width: auto !important;
-      height: 100% !important;
-      margin: 0 !important;
     }
 
     #inicio {
@@ -192,7 +168,7 @@
       }
 
       try {
-        // AR.js solicita y administra el único stream de cámara desde este clic.
+        // Quitar pantalla de inicio: la cámara queda visible de inmediato
         document.getElementById('inicio').remove();
 
         // Fondo transparente: evita que el fondo del html/body tape el video
@@ -202,20 +178,12 @@
 
         mensaje('Iniciando realidad aumentada...');
 
-        // Patrón del marcador: se usa el embebido (data: URI) para evitar CORS/XHR.
-        var patternUrl = window.PATRON_MARCADOR_BASE64
-          ? 'data:text/plain;base64,' + window.PATRON_MARCADOR_BASE64
-          : 'marker.patt';
-
-        // Crear escena AR con el marcador personalizado
+        // Escena AR mínima, igual que el ejemplo oficial, solo que con el
+        // marcador personalizado. AR.js posiciona el video de la cámara solo.
         document.getElementById('app').innerHTML =
-          '<a-scene embedded ' +
-          'vr-mode-ui="enabled:false" ' +
-          'renderer="antialias:true; alpha:true; precision:medium" ' +
-          'arjs="sourceType:webcam; debugUIEnabled:false; trackingMethod:best">' +
-          '<a-marker id="marker" type="pattern" url="' + patternUrl + '" ' +
-          'smooth="true" smooth-count="10" smooth-tolerance="0.01" smooth-threshold="5">' +
-          '<a-entity id="modelo" gltf-model="' + MODELO + '" position="0 0 0"></a-entity>' +
+          '<a-scene embedded arjs="debugUIEnabled:false; trackingMethod:best">' +
+          '<a-marker id="marker" type="pattern" url="marker.patt">' +
+          '<a-entity id="modelo" gltf-model="' + MODELO + '"></a-entity>' +
           '</a-marker>' +
           '<a-entity camera></a-entity>' +
           '</a-scene>';
